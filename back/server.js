@@ -6,8 +6,6 @@ const path = require('path');
 
 const app = express();
 app.use(cors());
-
-// 托管static/dist目录中的静态文件
 app.use(express.static(path.join(__dirname, 'static', 'dist')));
 
 const server = http.createServer(app);
@@ -18,14 +16,14 @@ const io = socketIo(server, {
   }
 });
 
-let users = [];
+let users = new Map(); // 使用 Map 来存储用户名和 socket.id 的对应关系
 
 io.on('connection', (socket) => {
   console.log('New client connected');
 
   socket.on('join', (username) => {
-    users.push(username);
-    io.emit('user joined', users);
+    users.set(socket.id, username);
+    io.emit('user joined', Array.from(users.values()));
   });
 
   socket.on('chat message', (msg) => {
@@ -34,12 +32,11 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('Client disconnected');
-    users = users.filter(user => user !== socket.username);
-    io.emit('user left', users);
+    users.delete(socket.id);
+    io.emit('user left', Array.from(users.values()));
   });
 });
 
-// 为了确保Vue路由的history模式能正常工作，添加一个通配符路由
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'static', 'dist', 'index.html'));
 });
